@@ -1,16 +1,20 @@
 {
-  "name": "df",
+  "name": "mine-per-click-server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Colyseus backend for 1 Mine Per Click (8-player lobbies)",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "sync-config": "node -e \"require('fs').copyFileSync('src/shared/gameConfig.js','../1-mine-per-click-client/src/shared/gameConfig.js')\""
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "express": "^5.2.1"
+    "@colyseus/core": "^0.18.16",
+    "@colyseus/schema": "^5.0.34",
+    "@colyseus/ws-transport": "^0.18.3",
+    "express": "^5.2.1",
+    "mongodb": "^6.21.0"
   }
 }

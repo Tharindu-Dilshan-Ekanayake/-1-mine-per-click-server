@@ -1,0 +1,80 @@
+# Deploys the game server to Bloxity Legion.
+#   push to `dev`  -> dev channel  (https://<gameId>.dev.host.bloxity.io)
+#   push to `main` -> prod channel (https://<gameId>.host.bloxity.io)
+#
+# One-time setup in this repo's Settings -> Secrets and variables -> Actions:
+#   Secret    LEGION_DEPLOY_TOKEN  your deploy token from My Games
+#   Variable  BLOXITY_GAME_ID      your game id, e.g. mine-per-click
+#   Variable  SEAT_CAP             (optional) players per pod, default 8
+#   Variable  MAX_REPLICAS         (optional) most pods at once, default 10
+# After the first run: make the ghcr.io package public
+# (repo -> Packages -> Package settings -> Change visibility).
+
+name: Deploy server
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-server-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GAME_ID: ${{ vars.BLOXITY_GAME_ID }}
+      # One pod = one 8-player lobby: when it fills, Legion starts another.
+      SEAT_CAP: ${{ vars.SEAT_CAP || '8' }}
+      MAX_REPLICAS: ${{ vars.MAX_REPLICAS || '10' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check setup
+        env:
+          TOKEN: ${{ secrets.LEGION_DEPLOY_TOKEN }}
+        run: |
+          [ -n "$GAME_ID" ] || { echo "::error::Set the BLOXITY_GAME_ID repository variable"; exit 1; }
+          [ -n "$TOKEN" ] || { echo "::error::Set the LEGION_DEPLOY_TOKEN repository secret"; exit 1; }
+
+      - name: Pick channel and image name
+        id: meta
+        run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then CHANNEL=prod; else CHANNEL=dev; fi
+          OWNER=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/$OWNER/$GAME_ID-server:$CHANNEL-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+
+      - name: Deploy to Legion
+        env:
+          LEGION_DEPLOY_TOKEN: ${{ secrets.LEGION_DEPLOY_TOKEN }}
+          CHANNEL: ${{ steps.meta.outputs.channel }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+        run: |
+          BODY=$(jq -n \
+            --arg channel "$CHANNEL" --arg image "$IMAGE" --arg version "$GITHUB_SHA" \
+            --argjson seatCap "$SEAT_CAP" --argjson maxReplicas "$MAX_REPLICAS" \
+            '{channel: $channel, image: $image, version: $version, seatCap: $seatCap, maxReplicas: $maxReplicas}')
+          echo "Deploying $IMAGE to $CHANNEL"
+          curl -sS --fail-with-body -X POST "https://legion.bloxity.io/v1/apps/$GAME_ID/deploy" \
+            -H "Authorization: Bearer $LEGION_DEPLOY_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$BODY"
