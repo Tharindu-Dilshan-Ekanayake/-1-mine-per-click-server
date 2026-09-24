@@ -47,10 +47,11 @@ MongoDB when `MONGODB_URI` is set (Bloxity Legion provides it), otherwise to
 
 ## Controls (client)
 
-WASD walk (A/D turn the camera), Space jump, Shift sprint, mouse look (the
-first click in the game captures the mouse; Esc frees it), click to swing, E to
-interact. Menu shortcuts: P pickaxes, B bags, T auras, U upgrades, R rebirth,
-I index, Q quests, G gift, F surface, M sound.
+WASD walk, Space jump, Shift sprint, click to swing, E to interact. The camera
+turns with A/D or a right-click (or touch) drag - the cursor is never hidden or
+captured. Menu shortcuts: P pickaxes, B bags, T auras, U upgrades, R rebirth,
+I index, Q quests, G gift, F surface, M sound. On touch devices (phone/tablet)
+a virtual joystick and jump/attack buttons replace the keyboard.
 
 ## Game config
 
